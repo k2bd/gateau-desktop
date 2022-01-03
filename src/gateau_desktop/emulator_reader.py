@@ -87,8 +87,8 @@ class SocketListener(EmulatorListener):
             logger.info("Starting to listen for RAM messages.")
 
             while True:
-                # Read a RAM frame - defined by one byte with the message
-                # length, then the message.
+                # Read a RAM frame - defined by 8 bytes with the message
+                # length, then the message itself.
                 len_data = await reader.read(8)
 
                 if not len_data:
