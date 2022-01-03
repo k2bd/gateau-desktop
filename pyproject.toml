@@ -1,0 +1,45 @@
+[tool.poetry]
+name = "gateau_desktop"
+version = "0.1.0"
+description = ""
+authors = ["Kevin Duff <kevinkelduff@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pydantic = "^1.9.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+black = "^21.12b0"
+flake8 = "^4.0.1"
+isort = "^5.10.1"
+mypy = "^0.930"
+pytest-cov = "^3.0.0"
+poethepoet = "^0.11.0"
+pytest-asyncio = "^0.16.0"
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.poe.tasks]
+autoformat.sequence = [
+    {cmd = "black src tests"},
+    {cmd = "isort src tests"},
+]
+
+lint.sequence = [
+    {cmd = "black --check -v src tests"},
+    {cmd = "isort --check -v src tests"},
+    {cmd = "flake8 src tests"},
+    {cmd = "mypy --pretty src tests"},
+]
+
+[tool.poe.tasks.test]
+sequence = [
+    {cmd = "pytest -o log_cli=true -vv --cov-report xml --cov-report term --cov=gateau_desktop tests"},
+]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
