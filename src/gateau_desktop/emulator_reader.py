@@ -12,8 +12,6 @@ from gateau_desktop.environment import GATEAU_SOCKET_PORT
 
 logger = logging.getLogger(__name__)
 
-STREAM_READ_BYTES = 1024
-
 
 class Byte(BaseModel):
     #: Location in memory
@@ -38,7 +36,6 @@ class OnRamFrame(Protocol):
 
 
 class EmulatorListener(BaseModel, ABC):
-
     class Config:
         arbitrary_types_allowed = True
 
@@ -70,6 +67,9 @@ class SocketListener(EmulatorListener):
     #: RAM processing tasks (for internal tracking)
     processing_tasks: List[asyncio.Task] = Field(default_factory=list)
 
+    #: Cleaner task to periodically trim the processing task list
+    cleaner_task: Optional[asyncio.Task] = None
+
     #: Socket server
     server: Optional[Server] = None
 
@@ -99,16 +99,10 @@ class SocketListener(EmulatorListener):
                 task = loop.create_task(self.on_ram_frame(ram_data))
                 self.processing_tasks.append(task)
 
-        def cleanup(future: asyncio.Future):
-            future.result()
-            logger.info(f"Removing listener for {peername}")
-            del self.listener_tasks[peername]
-
         # Create listener task.
         self.listener_tasks[peername] = loop.create_task(
             listen(reader=reader, writer=writer)
         )
-        self.listener_tasks[peername].add_done_callback(cleanup)
 
     async def __aenter__(self):
         """
@@ -122,21 +116,40 @@ class SocketListener(EmulatorListener):
         )
         self.server = server
 
+        loop = asyncio.get_event_loop()
+        self.cleaner_task = loop.create_task(self._clean_processing_tasks())
+
         return self
 
     async def __aexit__(self, *err):
         """
-        Stop listening to the emulator,
+        Stop listening to the emulator
         """
         await self._process_all()
 
         for peername, task in self.listener_tasks.items():
             logger.info(f"Stopping handler task for {peername}")
             task.cancel()
+        self.listener_tasks = {}
+
+        if self.cleaner_task:
+            self.cleaner_task.cancel()
+            self.cleaner_task = None
 
         if self.server:
             self.server.close()
             self.server = None
+
+    async def _clean_processing_tasks(self):
+        """
+        Helper method to periodically clean up the processing task list so it
+        doesn't grow indefinitely.
+        """
+        while True:
+            self.processing_tasks = [
+                task for task in self.processing_tasks if not task.done()
+            ]
+            await asyncio.sleep(10)
 
     async def _process_all(self):
         """

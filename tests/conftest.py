@@ -36,7 +36,8 @@ async def socket_listener(ram_log: RAMLog):
 @pytest.fixture
 async def send_ram(socket_listener: SocketListener):
     """
-    Create a client that can post messages to a running socket listener.
+    Return a function that can post messages to a running socket listener.
+    The function will ensure the task is received and processed before completing.
     """
 
     async def send(ram: RAM):
