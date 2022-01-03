@@ -1,8 +1,10 @@
 import asyncio
+import json
 import logging
 from abc import ABC, abstractmethod
+from asyncio.base_events import Server
 from asyncio.streams import StreamReader, StreamWriter
-from typing import Awaitable, Callable, Dict, List
+from typing import Awaitable, Callable, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -35,14 +37,14 @@ class EmulatorListener(BaseModel, ABC):
     on_ram_frame: Callable[[RAM], Awaitable[None]]
 
     @abstractmethod
-    async def start(self):
+    async def __aenter__(self):
         """
         Start listening to the emulator, invoking the callback when a new frame
         of RAM is read (not necessarily in order).
         """
 
     @abstractmethod
-    async def stop(self):
+    async def __aexit__(self, *err):
         """
         Stop listening to the emulator,
         """
@@ -52,11 +54,16 @@ class SocketListener(EmulatorListener):
     """
     An emulator listener built using sockets
     """
+
     class Config:
         arbitrary_types_allowed = True
 
     #: Whether or not the socket server should keep reading.
     listener_tasks: Dict[str, asyncio.Task] = Field(default_factory=dict)
+
+    processing_tasks: List[asyncio.Task] = Field(default_factory=list)
+
+    server: Optional[Server] = None
 
     def _connection_callback(self, reader: StreamReader, writer: StreamWriter):
         """
@@ -73,12 +80,12 @@ class SocketListener(EmulatorListener):
             while True:
                 # Read a whole frame - these are separeted by EOFs.
                 data = await reader.read()
-                ram_data = RAM.parse_raw(data)
+                ram_data = RAM.parse_obj(json.loads(data.decode("utf-8")))
                 logger.info(f"Processing RAM for frame {ram_data.frame!r}")
 
-                #: Fire a task for handling the RAM frame and forget about it.
-                loop.create_task(self.on_ram_frame(ram_data))
-                await asyncio.sleep(0)
+                #: Fire a task for handling the RAM frame
+                task = loop.create_task(self.on_ram_frame(ram_data))
+                self.processing_tasks.append(task)
 
         def cleanup(future: asyncio.Future):
             future.result()
@@ -91,21 +98,35 @@ class SocketListener(EmulatorListener):
         )
         self.listener_tasks[peername].add_done_callback(cleanup)
 
-    async def start(self):
+    async def __aenter__(self):
         """
         Start listening to the emulator, invoking the callback when a new frame
         of RAM is read (not necessarily in order).
         """
-        await asyncio.start_server(
+        server = await asyncio.start_server(
             self._connection_callback,
             host="127.0.0.1",
             port=GATEAU_SOCKET_PORT,
         )
+        self.server = server
 
-    async def stop(self):
+        return self
+
+    async def __aexit__(self, *err):
         """
         Stop listening to the emulator,
         """
+        await self._process_all()
+
         for peername, task in self.listener_tasks.items():
             logger.info(f"Stopping handler task for {peername}")
             task.cancel()
+
+        if self.server:
+            self.server.close()
+            self.server = None
+
+    async def _process_all(self):
+        for task in self.processing_tasks:
+            if not task.done():
+                await task
