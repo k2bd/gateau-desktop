@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from asyncio.base_events import Server
 from asyncio.streams import StreamReader, StreamWriter
-from typing import Awaitable, Callable, Dict, List, Optional
+from typing import Awaitable, Dict, List, Optional, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -31,10 +31,19 @@ class RAM(BaseModel):
     data: List[Byte]
 
 
+@runtime_checkable
+class OnRamFrame(Protocol):
+    def __call__(self, ram: RAM) -> Awaitable[None]:
+        ...
+
+
 class EmulatorListener(BaseModel, ABC):
 
+    class Config:
+        arbitrary_types_allowed = True
+
     #: Callback function to invoke when a new frame of RAM is received
-    on_ram_frame: Callable[[RAM], Awaitable[None]]
+    on_ram_frame: OnRamFrame
 
     @abstractmethod
     async def __aenter__(self):
@@ -55,14 +64,13 @@ class SocketListener(EmulatorListener):
     An emulator listener built using sockets
     """
 
-    class Config:
-        arbitrary_types_allowed = True
-
     #: Whether or not the socket server should keep reading.
     listener_tasks: Dict[str, asyncio.Task] = Field(default_factory=dict)
 
+    #: RAM processing tasks (for internal tracking)
     processing_tasks: List[asyncio.Task] = Field(default_factory=list)
 
+    #: Socket server
     server: Optional[Server] = None
 
     def _connection_callback(self, reader: StreamReader, writer: StreamWriter):
@@ -80,6 +88,10 @@ class SocketListener(EmulatorListener):
             while True:
                 # Read a whole frame - these are separeted by EOFs.
                 data = await reader.read()
+                if not data:
+                    await asyncio.sleep(0)
+                    logger.info("Skipping empty data...")
+                    continue
                 ram_data = RAM.parse_obj(json.loads(data.decode("utf-8")))
                 logger.info(f"Processing RAM for frame {ram_data.frame!r}")
 
@@ -127,6 +139,9 @@ class SocketListener(EmulatorListener):
             self.server = None
 
     async def _process_all(self):
+        """
+        Process remaining tasks
+        """
         for task in self.processing_tasks:
             if not task.done():
                 await task
