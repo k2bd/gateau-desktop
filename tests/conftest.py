@@ -1,5 +1,6 @@
 import asyncio
 import socket
+import sys
 
 import pytest
 
@@ -40,14 +41,15 @@ async def send_ram(socket_listener: SocketListener):
     The function will ensure the task is received and processed before completing.
     """
 
-    async def send(ram: RAM):
-        original_tasks = len(socket_listener.processing_tasks)
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            encoded = ram.json().encode("utf-8")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect(("127.0.0.1", GATEAU_SOCKET_PORT))
 
-            s.connect(("127.0.0.1", GATEAU_SOCKET_PORT))
-            s.sendall(encoded)
-            s.close()
+        async def send(ram: RAM):
+            original_tasks = len(socket_listener.processing_tasks)
+            encoded = ram.json().encode("utf-8")
+            len_byte = len(encoded).to_bytes(8, sys.byteorder)
+
+            s.sendall(len_byte + encoded)
 
             while len(socket_listener.processing_tasks) == original_tasks:
                 # Wait for the task to appear on the processor.
@@ -55,4 +57,4 @@ async def send_ram(socket_listener: SocketListener):
 
             await socket_listener._process_all()
 
-    return send
+        yield send

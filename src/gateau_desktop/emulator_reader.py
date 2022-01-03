@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import sys
 from abc import ABC, abstractmethod
 from asyncio.base_events import Server
 from asyncio.streams import StreamReader, StreamWriter
@@ -86,17 +87,22 @@ class SocketListener(EmulatorListener):
             logger.info("Starting to listen for RAM messages.")
 
             while True:
-                # Read a whole frame - these are separeted by EOFs.
-                data = await reader.read()
-                if not data:
-                    await asyncio.sleep(0)
-                    logger.info("Skipping empty data...")
-                    continue
-                ram_data = RAM.parse_obj(json.loads(data.decode("utf-8")))
-                logger.info(f"Processing RAM for frame {ram_data.frame!r}")
+                # Read a RAM frame - defined by one byte with the message
+                # length, then the message.
+                len_data = await reader.read(8)
+
+                if not len_data:
+                    logger.info("Got EOF, exiting")
+                    break
+
+                message_len: int = int.from_bytes(len_data, sys.byteorder)
+                ram_data = await reader.read(message_len)
+
+                ram_frame = RAM.parse_obj(json.loads(ram_data.decode("utf-8")))
+                logger.info(f"Processing RAM for frame {ram_frame.frame!r}")
 
                 #: Fire a task for handling the RAM frame
-                task = loop.create_task(self.on_ram_frame(ram_data))
+                task = loop.create_task(self.on_ram_frame(ram_frame))
                 self.processing_tasks.append(task)
 
         # Create listener task.
