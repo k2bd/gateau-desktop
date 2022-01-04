@@ -14,7 +14,7 @@ async def test_send_ram_message(
 ):
     ram = RAM(
         frame=10,
-        data=[
+        ram_data=[
             Byte(location=123, value=456),
             Byte(location=234, value=567),
         ],
@@ -33,7 +33,7 @@ async def test_send_multiple(
 ):
     ram1 = RAM(
         frame=10,
-        data=[
+        ram_data=[
             Byte(location=123, value=456),
             Byte(location=234, value=567),
         ],
@@ -41,7 +41,7 @@ async def test_send_multiple(
 
     ram2 = RAM(
         frame=11,
-        data=[
+        ram_data=[
             Byte(location=123, value=222),
             Byte(location=234, value=333),
         ],

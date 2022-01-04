@@ -27,7 +27,7 @@ class RAM(BaseModel):
     frame: int
 
     #: RAM data
-    data: List[Byte]
+    ram_data: List[Byte]
 
 
 @runtime_checkable
