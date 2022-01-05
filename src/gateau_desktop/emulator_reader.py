@@ -96,7 +96,7 @@ class SocketListener(EmulatorListener):
                     break
 
                 message_len: int = int.from_bytes(len_data, sys.byteorder)
-                ram_data = await reader.read(message_len)
+                ram_data = await reader.readexactly(message_len)
 
                 ram_frame = RAM.parse_obj(json.loads(ram_data.decode("utf-8")))
                 logger.info(f"Processing RAM for frame {ram_frame.frame!r}")
