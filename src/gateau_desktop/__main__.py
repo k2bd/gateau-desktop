@@ -1,11 +1,11 @@
 import asyncio
 
-from gateau_desktop.emulator_listener import RAM, SocketListener
+from gateau_desktop.emulator_listener import SocketListener
 from gateau_desktop.ram_monitor import RamChangeInfo, RamMonitor
 
 
 async def handle_change(info: RamChangeInfo):
-    slot1_event, = info.events
+    (slot1_event,) = info.events
     print(f"Slot 1 changed from {slot1_event.old} to {slot1_event.new}")
     await asyncio.sleep(0)
 
