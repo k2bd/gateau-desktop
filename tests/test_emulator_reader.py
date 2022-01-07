@@ -2,7 +2,7 @@ from typing import Awaitable, Callable
 
 import pytest
 
-from gateau_desktop.emulator_reader import RAM, Byte, SocketListener
+from gateau_desktop.emulator_listener import RAM, Byte, SocketListener
 from tests.conftest import RAMLog
 
 
@@ -22,7 +22,7 @@ async def test_send_ram_message(
 
     await send_ram(ram)
 
-    assert ram_log.messages == [ram]
+    assert ram_log.on_ram_frame_msgs == [ram]
 
 
 @pytest.mark.asyncio
@@ -50,4 +50,4 @@ async def test_send_multiple(
     await send_ram(ram1)
     await send_ram(ram2)
 
-    assert sorted(ram_log.messages, key=lambda r: r.frame) == [ram1, ram2]
+    assert sorted(ram_log.on_ram_frame_msgs, key=lambda r: r.frame) == [ram1, ram2]

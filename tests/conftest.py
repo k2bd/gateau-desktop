@@ -4,16 +4,21 @@ import sys
 
 import pytest
 
-from gateau_desktop.emulator_reader import RAM, SocketListener
+from gateau_desktop.emulator_listener import RAM, SocketListener
 from gateau_desktop.environment import GATEAU_SOCKET_PORT
+from gateau_desktop.ram_monitor import RamChangeInfo, RamMonitor
 
 
 class RAMLog:
     def __init__(self):
-        self.messages = []
+        self.on_ram_frame_msgs = []
+        self.on_ram_change_msgs = []
 
     async def on_ram_frame(self, ram: RAM):
-        self.messages.append(ram)
+        self.on_ram_frame_msgs.append(ram)
+
+    async def on_ram_change(self, info: RamChangeInfo):
+        self.on_ram_change_msgs.append(info)
 
 
 @pytest.fixture
@@ -32,6 +37,21 @@ async def socket_listener(ram_log: RAMLog):
     """
     async with SocketListener(on_ram_frame=ram_log.on_ram_frame) as listener:
         yield listener
+
+
+@pytest.fixture
+def socket_ram_monitor(ram_log: RAMLog, socket_listener: SocketListener):
+    """
+    Subscribe to changes in RAM frames sent down a socket.
+    The monitor is subscribed to changes in bytes 1, 2, 3, 5, and 8
+    """
+    monitor = RamMonitor(
+        subscription=[1, 2, 3, 5, 8],
+        on_ram_change=ram_log.on_ram_change,
+    )
+    socket_listener.on_ram_frame = monitor.ram_frame_handler
+
+    return monitor
 
 
 @pytest.fixture
