@@ -1,11 +1,11 @@
 import asyncio
 
-from gateau_desktop.emulator_reader import RAM, SocketListener
+from gateau_desktop.emulator_listener import RAM, SocketListener
 
 
 async def handle_ram(ram: RAM):
     (pokemon_1,) = [b.value for b in ram.ram_data if b.location == 0xD164]
-    print(f"Frame {ram.frame} - {pokemon_1}")
+    print(f"Frame {ram.frame} | Slot 1: {pokemon_1}")
     await asyncio.sleep(0)
 
 

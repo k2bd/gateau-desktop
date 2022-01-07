@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from gateau_desktop.emulator_reader import RAM, SocketListener
+from gateau_desktop.emulator_listener import RAM, SocketListener
 from gateau_desktop.environment import GATEAU_SOCKET_PORT
 
 

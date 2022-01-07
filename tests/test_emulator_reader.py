@@ -2,7 +2,7 @@ from typing import Awaitable, Callable
 
 import pytest
 
-from gateau_desktop.emulator_reader import RAM, Byte, SocketListener
+from gateau_desktop.emulator_listener import RAM, Byte, SocketListener
 from tests.conftest import RAMLog
 
 
