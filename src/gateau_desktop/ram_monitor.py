@@ -76,11 +76,14 @@ class RamMonitor(BaseModel):
                 for byte in ram.ram_data
                 if byte.location in self.subscription
             ]
-            return RamChangeInfo(
-                frame=ram.frame,
-                old_frame=None,
-                events=events,
+            await self.on_ram_change(
+                info=RamChangeInfo(
+                    frame=ram.frame,
+                    old_frame=None,
+                    events=events,
+                )
             )
+            return
 
         old_by_addr = {
             byte.location: byte.value
