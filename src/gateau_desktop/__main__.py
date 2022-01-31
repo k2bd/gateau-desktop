@@ -2,17 +2,28 @@ import asyncio
 
 from gateau_desktop.emulator_listener import SocketListener
 from gateau_desktop.ram_monitor import RamChangeInfo, RamMonitor
+import requests
 
 
 async def handle_change(info: RamChangeInfo):
-    (slot1_event,) = info.events
-    print(f"Slot 1 changed from {slot1_event.old} to {slot1_event.new}")
+    requests.post(
+        "http://127.0.0.1:8011/game/aaaa/ramChange",
+        headers={"player-id": "tempPlayer123"},
+        json=info.dict(),
+    )
     await asyncio.sleep(0)
 
 
 async def run_server():
+    subs = requests.get(
+        "http://127.0.0.1:8011/game/aaaa/ramSubscriptions",
+        headers={"player-id": "tempPlayer123"},
+    )
+    addrs = [int(addr) for addr in subs.json()["ramAddresses"]]
+    print(addrs)
+
     monitor = RamMonitor(
-        subscription=[0xD164],  # Slot 1 Pokemon
+        subscription=addrs,
         on_ram_change=handle_change,
     )
     async with SocketListener(on_ram_frame=monitor.ram_frame_handler):
