@@ -8,6 +8,9 @@ authors = ["Kevin Duff <kevinkelduff@gmail.com>"]
 python = "^3.8"
 pydantic = "^1.9.0"
 requests = "^2.27.1"
+aiohttp = "^3.8.1"
+firebasil = "^0.1.6"
+click = "^8.0.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
